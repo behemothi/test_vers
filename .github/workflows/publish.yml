@@ -1,0 +1,75 @@
+name: Publish (tag-based version)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  publish:
+    # run only if:
+    # - CI succeeded
+    # - it was a push to develop (merge)
+    if: >
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'develop'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to push tags
+
+    steps:
+      - name: Checkout tested commit (with tags)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+
+      - name: Install deps
+        run: poetry install --no-interaction
+
+      - name: Bump patch from latest tag and push new tag
+        shell: bash
+        run: |
+          git fetch --force --tags
+
+          latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          if [ -z "$latest_tag" ]; then
+            base="$(poetry version -s)"   # fallback to pyproject version (e.g. 0.1.0)
+          else
+            base="${latest_tag#v}"
+          fi
+
+          IFS='.' read -r major minor patch <<< "$base"
+          patch=$((patch + 1))
+          new_version="${major}.${minor}.${patch}"
+
+          echo "Latest tag: ${latest_tag:-<none>}"
+          echo "Setting version to: $new_version"
+
+          poetry version "$new_version"
+
+          new_tag="v${new_version}"
+          git tag "$new_tag"
+          git push origin "$new_tag"
+
+      - name: Build
+        run: poetry build
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
