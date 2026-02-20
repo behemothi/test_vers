@@ -115,15 +115,6 @@ jobs:
         with:
           name: dist
           path: dist/*
-<<<<<<< HEAD
-=======
-
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/*
->>>>>>> 99d3e356d31c10007bb4457c3fd9f2568f9b808e
 
       - name: Publish
         run: poetry publish -r github
