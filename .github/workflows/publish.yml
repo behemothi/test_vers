@@ -18,15 +18,17 @@ jobs:
       }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # needed to push tags
+      contents: write # needed to push
+      packages: write
 
     steps:
       - name: Checkout tested commit (with tags)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          #  ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-          fetch-tags: true
+          #  fetch-tags: true
+          persist-credentials: true
 
       - uses: actions/setup-python@v5
         with:
@@ -35,41 +37,69 @@ jobs:
       - name: Install Poetry
         run: |
           python -m pip install --upgrade pip
-          pip install poetry
+          pip install poetry poetry-dynamic-versioning
 
       - name: Install deps
         run: poetry install --no-interaction
-
-      - name: Bump patch from latest tag and push new tag
+      - name: Create next tag (patch bump)
+        id: ver
         shell: bash
         run: |
-          git fetch --force --tags
+          # set -euo pipefail
+          git fetch --tags --force
 
-          latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
-          if [ -z "$latest_tag" ]; then
-            base="$(poetry version -s)"   # fallback to pyproject version (e.g. 0.1.0)
+          last_tag="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
+          if [[ -z "$last_tag" ]]; then
+            new_version="$(poetry version -s)"   # fallback to pyproject version (e.g. 0.1.0)
+
           else
-            base="${latest_tag#v}"
+            v="${last_tag#v}"
+            IFS='.' read -r major minor patch <<< "$v"
+            patch=$((patch + 1))
+            new_version="${major}.${minor}.${patch}"
           fi
 
-          IFS='.' read -r major minor patch <<< "$base"
-          patch=$((patch + 1))
-          new_version="${major}.${minor}.${patch}"
+          tag="v${new_version}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-          echo "Latest tag: ${latest_tag:-<none>}"
-          echo "Setting version to: $new_version"
+          # если тег уже есть (повторный прогон) — не падаем
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists"
+          else
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+      # - name: Bump patch from latest tag and push new tag
+      #   shell: bash
+      #   run: |
+      #     git fetch --force --tags
 
-          poetry version "$new_version"
+      #     latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+      #     if [ -z "$latest_tag" ]; then
+      #       base="$(poetry version -s)"   # fallback to pyproject version (e.g. 0.1.0)
+      #     else
+      #       base="${latest_tag#v}"
+      #     fi
 
-          new_tag="v${new_version}"
-          git tag "$new_tag"
-          git push origin "$new_tag"
+      #     IFS='.' read -r major minor patch <<< "$base"
+      #     patch=$((patch + 1))
+      #     new_version="${major}.${minor}.${patch}"
+
+      #     echo "Latest tag: ${latest_tag:-<none>}"
+      #     echo "Setting version to: $new_version"
+
+      #     poetry version "$new_version"
+
+      #     new_tag="v${new_version}"
+      #     git tag "$new_tag"
+      #     git push origin "$new_tag"
+      - name: Configure GitHub Packages (PyPI registry)
+        run: |
+          poetry config repositories.github "https://pip.pkg.github.com/behemothi"
+          poetry config http-basic.github "__token__" "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Build
         run: poetry build
 
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/*
+      - name: Publish
+        run: poetry publish -r github
