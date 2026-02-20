@@ -16,6 +16,7 @@ jobs:
         # 2. Make sure the CI workflow was triggered by a push event. This prevents publishing after pull_request,
         # manual runs, or scheduled runs.
         # 3. Ensure the push was made to the develop branch. Publish should happen only after merge or direct push to develop
+
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_branch == 'develop'
