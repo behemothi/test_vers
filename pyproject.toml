@@ -10,6 +10,10 @@ requires-python = ">=3.12"
 dependencies = [
 ]
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^5.0"
+
 [tool.poetry]
 packages = [{include = "vers_demo", from = "src"}]
 
@@ -17,7 +21,15 @@ packages = [{include = "vers_demo", from = "src"}]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[dependency-groups]
-dev = [
-    "pytest (>=9.0.2,<10.0.0)"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "unit: unit tests",
+  "integration: integration tests",
 ]
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "semver"
+pattern = "^v(?P<base>\\d+\\.\\d+\\.\\d+)$"
