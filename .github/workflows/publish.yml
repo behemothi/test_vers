@@ -12,8 +12,15 @@ jobs:
     # - it was a push to develop (merge)
     if: >
       ${{
+        # Ensure the previous workflow (e.g. CI) finished successfully
+        # This means all tests and checks passed
         github.event.workflow_run.conclusion == 'success' &&
+
+        # Make sure the CI workflow was triggered by a push event
+        # This prevents publishing after pull_request, manual runs, or scheduled runs
         github.event.workflow_run.event == 'push' &&
+        # Ensure the push was made to the develop branch
+        # Publish should happen only after merge or direct push to develop
         github.event.workflow_run.head_branch == 'develop'
       }}
     runs-on: ubuntu-latest
