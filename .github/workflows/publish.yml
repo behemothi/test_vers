@@ -38,7 +38,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry
           # ✅ ВАЖНО: подключаем как Poetry plugin
-          poetry self add "poetry-dynamic-versioning[plugin]"
+          poetry self add "poetry-dynamic-versioning[plugin]>=1.5.0"
 
       - name: Install deps
         run: poetry install --no-interaction
@@ -109,12 +109,6 @@ jobs:
 
       - name: Build
         run: poetry build -vv
-
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/*
 
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
