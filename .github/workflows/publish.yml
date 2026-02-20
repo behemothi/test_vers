@@ -38,7 +38,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry
           # ✅ ВАЖНО: подключаем как Poetry plugin
-          poetry self add "poetry-dynamic-versioning[plugin]"
+          poetry self add "poetry-dynamic-versioning[plugin]>=1.5.0"
 
       - name: Install deps
         run: poetry install --no-interaction
